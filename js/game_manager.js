@@ -221,3 +221,96 @@ GameManager.prototype.tileMatchesAvailable = function () {
 GameManager.prototype.positionsEqual = function (first, second) {
   return first.x === second.x && first.y === second.y;
 };
+
+
+GameManager.prototype.tryMove = function(direction) {
+  // 0: up, 1: right, 2:down, 3: left
+  var self = this;
+
+  if (this.over || this.won) return; // Don't do anything if the game's over
+
+  var cell, tile;
+
+  var vector     = this.getVector(direction);
+  var traversals = this.buildTraversals(vector);
+  var moved      = false;
+  var merge_count = 0;
+
+  // Save the current tile positions and remove merger information
+  this.prepareTiles();
+
+  // Traverse the grid in the right direction and move tiles
+  traversals.x.forEach(function (x) {
+    traversals.y.forEach(function (y) {
+      cell = { x: x, y: y };
+      tile = self.grid.cellContent(cell);
+
+      if (tile) {
+        var positions = self.findFarthestPosition(cell, vector);
+        var next      = self.grid.cellContent(positions.next);
+
+        // Only one merger per row traversal?
+        if (next && next.value === tile.value && !next.mergedFrom) {
+          var merged = new Tile(positions.next, tile.value * 2);
+          merged.mergedFrom = [tile, next];
+
+          merge_count += 1;
+
+          // The mighty 2048 tile
+          if (merged.value === 2048) merge_count += 100;
+
+          moved = true;
+
+        }
+
+        if (tile.x != positions.farthest.x || tile.y != positions.farthest.y) {
+          console.log("can move");
+          moved = true;
+        }
+      }
+    });
+  });
+
+  if (!moved) {
+    merge_count = -1;
+  }
+  console.log(merge_count);
+  return merge_count;
+};
+
+GameManager.prototype.autoMove = function() {
+  var best = 0;
+  var max_merge_count = -2;
+  var merge_count = 0;
+  var randome = Math.random();
+  var possible_moves = [0, 3, 1];
+
+  if (randome > 0.5) {
+    var possible_moves = [0, 1, 3];
+  }
+  
+
+  for(index = 0; index < possible_moves.length; ++ index) {
+    merge_count = this.tryMove(possible_moves[index]);
+    //console.log(merge_count);
+    if (merge_count > max_merge_count) {
+      max_merge_count = merge_count;
+      best = possible_moves[index];
+    }
+  }
+
+  console.log("max is: " + max_merge_count + " best is: " + best);
+
+  if (max_merge_count == -1) {
+    this.move(2);
+  } else {
+    this.move(best);
+  }
+};
+
+GameManager.prototype.autoComplete = function() {
+  console.log("start auto completion");
+  setTimeout(function(){
+    self.autoMove();
+  },500);
+};
